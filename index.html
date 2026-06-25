@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"/>
+<title>Mass Near Me · Winnipeg</title>
+<meta name="theme-color" content="#6b1f2a"/>
+<link rel="manifest" href="manifest.webmanifest"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="Mass Near Me"/>
+<link rel="apple-touch-icon" href="icon-192.png"/>
+<link rel="icon" href="icon-192.png"/>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<style>
+  :root{
+    --wine:#6b1f2a; --wine2:#8a2a38; --gold:#c8a24a; --ink:#1c1a18; --paper:#f7f3ec;
+    --card:#ffffff; --muted:#6b6660; --line:#e6ded2; --sb:#2c5d8a; --wpg:#6b1f2a;
+    --ok:#2f7d4f; --warn:#b8860b;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;color:var(--ink);background:var(--paper)}
+  #app{display:flex;flex-direction:column;height:100dvh}
+  header{background:linear-gradient(135deg,var(--wine),var(--wine2));color:#fff;padding:env(safe-area-inset-top) 14px 10px;padding-top:max(10px,env(safe-area-inset-top))}
+  header h1{font-size:17px;margin:8px 0 2px;font-weight:600;letter-spacing:.2px}
+  header h1 span{color:var(--gold)}
+  header p{margin:0;font-size:11.5px;opacity:.82}
+  .controls{padding:10px 12px;background:var(--card);border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:8px}
+  .row{display:flex;gap:8px;flex-wrap:wrap}
+  .seg{display:flex;background:#efe7da;border-radius:10px;padding:3px;flex:1;min-width:0}
+  .seg button{flex:1;border:0;background:transparent;padding:8px 6px;border-radius:8px;font-size:12.5px;color:var(--muted);font-weight:600}
+  .seg button.on{background:#fff;color:var(--wine);box-shadow:0 1px 3px rgba(0,0,0,.12)}
+  .btn{border:0;border-radius:10px;padding:11px 12px;font-size:13.5px;font-weight:600;background:var(--wine);color:#fff}
+  .btn.primary{background:var(--wine)}
+  .btn.ghost{background:#efe7da;color:var(--wine)}
+  .btn:active{transform:translateY(1px)}
+  select,input[type=time]{border:1px solid var(--line);border-radius:9px;padding:9px;font-size:13px;background:#fff;color:var(--ink);flex:1;min-width:0}
+  label.lab{font-size:11px;color:var(--muted);font-weight:600;display:block;margin:0 0 2px 2px}
+  .field{flex:1;min-width:90px}
+  #loc{font-size:11.5px;color:var(--muted);display:flex;align-items:center;gap:6px}
+  #loc b{color:var(--wine)}
+  #interp{display:none;font-size:12px;color:var(--muted);background:#f3ece0;border-radius:8px;padding:7px 10px}
+  #interp b{color:var(--wine)}
+  main{flex:1;position:relative;overflow:hidden}
+  #map{position:absolute;inset:0}
+  #sheet{position:absolute;left:0;right:0;bottom:0;max-height:62%;background:var(--card);border-radius:16px 16px 0 0;box-shadow:0 -6px 24px rgba(0,0,0,.18);transform:translateY(calc(100% - 46px));transition:transform .28s cubic-bezier(.2,.8,.2,1);display:flex;flex-direction:column;z-index:600}
+  #sheet.open{transform:translateY(0)}
+  .grip{padding:10px;text-align:center;cursor:pointer}
+  .grip .bar{width:38px;height:4px;border-radius:3px;background:#d8cfc0;margin:0 auto 6px}
+  .grip b{font-size:13px;color:var(--wine)}
+  #results{overflow:auto;padding:0 10px 16px;-webkit-overflow-scrolling:touch}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:11px 12px;margin:8px 0;display:flex;gap:10px;align-items:flex-start}
+  .card .when{flex:0 0 auto;text-align:center;min-width:62px;background:#f3ece0;border-radius:9px;padding:7px 6px}
+  .card .when .t{font-weight:700;color:var(--wine);font-size:15px;line-height:1.1}
+  .card .when .d{font-size:10.5px;color:var(--muted);margin-top:2px}
+  .card .meta{flex:1;min-width:0}
+  .card .meta .nm{font-weight:600;font-size:14px}
+  .card .meta .sub{font-size:11.5px;color:var(--muted);margin-top:2px;display:flex;gap:8px;flex-wrap:wrap}
+  .pill{font-size:10px;padding:2px 7px;border-radius:20px;background:#efe7da;color:var(--wine);font-weight:600}
+  .pill.sb{background:#e7eef6;color:var(--sb)}
+  .dist{color:var(--wine);font-weight:600}
+  .empty{padding:30px 16px;text-align:center;color:var(--muted);font-size:13px}
+  /* detail modal */
+  #modal{position:fixed;inset:0;background:rgba(20,16,14,.5);display:none;align-items:flex-end;z-index:1000}
+  #modal.open{display:flex}
+  .panel{background:var(--paper);width:100%;max-height:88dvh;border-radius:16px 16px 0 0;overflow:auto;padding:0 16px 24px}
+  .phead{position:sticky;top:0;background:linear-gradient(135deg,var(--wine),var(--wine2));color:#fff;margin:0 -16px 12px;padding:16px;border-radius:16px 16px 0 0}
+  .phead h2{margin:0;font-size:18px}
+  .phead .a{font-size:12px;opacity:.85;margin-top:3px}
+  .close{position:absolute;top:12px;right:14px;color:#fff;font-size:22px;background:transparent;border:0;line-height:1}
+  .sec{background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin:10px 0}
+  .sec h3{margin:0 0 8px;font-size:12px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted)}
+  .line{display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-bottom:1px dashed var(--line);font-size:13.5px}
+  .line:last-child{border-bottom:0}
+  .line .k{color:var(--muted);flex:0 0 auto}
+  .line .v{text-align:right}
+  .actions{display:flex;gap:8px;margin-top:6px}
+  .actions a{flex:1;text-align:center;text-decoration:none;padding:11px;border-radius:10px;background:var(--wine);color:#fff;font-weight:600;font-size:13px}
+  .actions a.ghost{background:#efe7da;color:var(--wine)}
+  .conf{font-size:11px;color:var(--muted);margin-top:8px}
+  .conf b{color:var(--ink)}
+  .leaflet-popup-content{font-size:13px}
+  .src a{color:var(--sb)}
+  @media(min-width:760px){#sheet{max-width:420px;right:auto;left:12px;bottom:12px;border-radius:16px;transform:none;max-height:calc(100% - 24px)} .grip{display:none} #sheet{box-shadow:0 6px 24px rgba(0,0,0,.18)} .panel{max-width:520px;margin:0 auto;border-radius:16px}}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>Mass <span>Near Me</span> · Winnipeg & St. Boniface</h1>
+    <p>Find the next Mass, confession or adoration close to you.</p>
+  </header>
+  <div class="controls">
+    <div class="row">
+      <input id="nlq" type="text" autocomplete="off" placeholder="Ask: “Mass near 201 Portage Ave tomorrow at 10 AM”" style="flex:1;font-size:14px;padding:11px 12px;border:1.5px solid var(--gold);border-radius:11px"/>
+      <button class="btn primary" id="nlBtn" style="flex:0 0 auto">Ask</button>
+    </div>
+    <div id="interp"></div>
+    <div class="row">
+      <div class="seg" id="catSeg">
+        <button data-cat="mass" class="on">Mass</button>
+        <button data-cat="confession">Confession</button>
+        <button data-cat="adoration">Adoration</button>
+      </div>
+    </div>
+    <div class="row">
+      <button class="btn primary" id="nowBtn" style="flex:2">Next hour, near me</button>
+      <button class="btn ghost" id="locBtn" style="flex:1">📍 My location</button>
+    </div>
+    <div class="row">
+      <div class="field"><label class="lab">Day</label>
+        <select id="day"></select></div>
+      <div class="field"><label class="lab">From</label><input type="time" id="from" value="08:00"></div>
+      <div class="field"><label class="lab">To</label><input type="time" id="to" value="21:00"></div>
+      <div class="field" style="flex:0 0 auto;align-self:flex-end"><button class="btn" id="searchBtn">Search</button></div>
+    </div>
+    <div id="loc">Location: <b id="locText">tap the map to set, or use “My location”</b></div>
+  </div>
+  <main>
+    <div id="map"></div>
+    <div id="sheet">
+      <div class="grip" id="grip"><div class="bar"></div><b id="gripLabel">Results</b></div>
+      <div id="results"><div class="empty">Choose a time and a location, then search — or tap “Next hour, near me”.</div></div>
+    </div>
+  </main>
+</div>
+<div id="modal"><div class="panel" id="panel"></div></div>
+
+<script src="parish_data.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+const DOW=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"]; // JS getDay order
+const DOWk=["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+const P=(window.PARISH_DATA&&window.PARISH_DATA.parishes)||[];
+let origin=null, cat="mass", markers={}, originMarker=null;
+
+// ---------- map ----------
+const map=L.map('map',{zoomControl:true}).setView([49.88,-97.14],11);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(map);
+function pin(color){return L.divIcon({className:'',html:`<div style="width:16px;height:16px;border-radius:50% 50% 50% 0;background:${color};transform:rotate(-45deg);border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.4)"></div>`,iconSize:[16,16],iconAnchor:[8,16]});}
+P.forEach(p=>{ if(p.lat&&p.lon){
+  const m=L.marker([p.lat,p.lon],{icon:pin(p.arch==='Winnipeg'?'#6b1f2a':'#2c5d8a')}).addTo(map);
+  m.on('click',()=>openDetail(p.id));
+  m.bindTooltip(p.name,{direction:'top',offset:[0,-12]});
+  markers[p.id]=m;
+}});
+map.on('click',e=>setOrigin(e.latlng.lat,e.latlng.lng,'map pin'));
+
+function setOrigin(lat,lon,label){
+  origin={lat,lon};
+  document.getElementById('locText').textContent=label||`${lat.toFixed(3)}, ${lon.toFixed(3)}`;
+  if(originMarker) map.removeLayer(originMarker);
+  originMarker=L.circleMarker([lat,lon],{radius:9,color:'#c8a24a',weight:3,fillColor:'#fff',fillOpacity:1}).addTo(map);
+}
+
+// ---------- day dropdown ----------
+const daySel=document.getElementById('day');
+[["today","Today"],["tomorrow","Tomorrow"]].concat(DOWk.map(d=>[d,d+"day".replace('day','')])).forEach(()=>{});
+(function fillDays(){
+  const opts=[["today","Today"],["tomorrow","Tomorrow"],
+    ["Sun","Sunday"],["Mon","Monday"],["Tue","Tuesday"],["Wed","Wednesday"],["Thu","Thursday"],["Fri","Friday"],["Sat","Saturday"]];
+  daySel.innerHTML=opts.map(o=>`<option value="${o[0]}">${o[1]}</option>`).join('');
+})();
+
+// ---------- category segment ----------
+document.querySelectorAll('#catSeg button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('#catSeg button').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on'); cat=b.dataset.cat;
+});
+
+// ---------- geolocation ----------
+document.getElementById('locBtn').onclick=()=>{
+  if(!navigator.geolocation){alert('Location not available on this device.');return;}
+  document.getElementById('locText').textContent='locating…';
+  navigator.geolocation.getCurrentPosition(
+    pos=>{setOrigin(pos.coords.latitude,pos.coords.longitude,'my location');map.setView([pos.coords.latitude,pos.coords.longitude],13);},
+    ()=>{document.getElementById('locText').textContent='location denied — tap the map instead';},
+    {enableHighAccuracy:true,timeout:8000});
+};
+
+// ---------- time/occurrence helpers ----------
+function hav(a,b){const R=6371,dLat=(b.lat-a.lat)*Math.PI/180,dLon=(b.lon-a.lon)*Math.PI/180,
+  s=Math.sin(dLat/2)**2+Math.cos(a.lat*Math.PI/180)*Math.cos(b.lat*Math.PI/180)*Math.sin(dLon/2)**2;
+  return R*2*Math.atan2(Math.sqrt(s),Math.sqrt(1-s));}
+function evMatches(e){return e.category===cat && e.time && e.regular && (!e.months || e.months.includes(new Date().getMonth()+1));}
+// next occurrence of event at/after 'from' Date, within 8 days
+function nextOcc(e,from){
+  const [hh,mm]=e.time.split(':').map(Number);
+  for(let i=0;i<8;i++){
+    const d=new Date(from); d.setDate(d.getDate()+i); d.setHours(hh,mm,0,0);
+    const wd=DOW[d.getDay()];
+    if(e.days&&e.days.includes(wd)&&d>=from) return d;
+  }
+  return null;
+}
+// occurrence on a specific weekday within [t1,t2] (this/next week)
+function occOnDay(e,targetDow,t1,t2){
+  const base=new Date(); let delta=(DOW.indexOf(targetDow)-base.getDay()+7)%7;
+  const d=new Date(); d.setDate(d.getDate()+delta);
+  const [hh,mm]=e.time.split(':').map(Number); d.setHours(hh,mm,0,0);
+  if(!e.days.includes(targetDow))return null;
+  const mins=hh*60+mm; if(mins<t1||mins>t2)return null;
+  return d;
+}
+
+// ---------- searches ----------
+function render(list,label){
+  document.getElementById('gripLabel').textContent=label+' ('+list.length+')';
+  const r=document.getElementById('results');
+  if(!list.length){r.innerHTML='<div class="empty">No '+cat+' found for that time and place. Try widening the window or another day.</div>';openSheet();return;}
+  r.innerHTML=list.map(x=>{
+    const p=x.p, when=x.when;
+    const dlabel=when?when.toLocaleDateString([], {weekday:'short'})+' '+when.toLocaleTimeString([], {hour:'numeric',minute:'2-digit'}):'';
+    const tt=when?when.toLocaleTimeString([], {hour:'numeric',minute:'2-digit'}):'—';
+    const dd=when?when.toLocaleDateString([], {weekday:'short'}):'';
+    return `<div class="card" onclick="openDetail('${p.id}')">
+      <div class="when"><div class="t">${tt}</div><div class="d">${dd}</div></div>
+      <div class="meta"><div class="nm">${p.name}</div>
+        <div class="sub"><span class="pill ${p.arch==='Winnipeg'?'':'sb'}">${p.arch==='Winnipeg'?'Winnipeg':'St. Boniface'}</span>
+        ${x.dist!=null?`<span class="dist">${x.dist<1?Math.round(x.dist*1000)+' m':x.dist.toFixed(1)+' km'}</span>`:''}
+        ${x.lang?`<span>${x.lang}</span>`:''}<span>${p.area.replace(' (suburb)','')}</span></div></div></div>`;
+  }).join('');
+  openSheet();
+}
+function nextHourNearMe(){
+  if(!origin){alert('Set your location first (📍 My location, or tap the map).');return;}
+  const now=new Date(), lim=new Date(now.getTime()+60*60000); let out=[];
+  P.forEach(p=>{ if(p.lat==null)return;
+    p.events.filter(evMatches).forEach(e=>{ const occ=nextOcc(e,now);
+      if(occ&&occ<=lim) out.push({p,when:occ,lang:e.language,dist:origin?hav(origin,p):null}); }); });
+  out.sort((a,b)=> (a.dist??1e9)-(b.dist??1e9) || a.when-b.when);
+  render(out,'Next hour near you');
+}
+function search(){
+  const dayv=daySel.value, f=document.getElementById('from').value, t=document.getElementById('to').value;
+  const t1=+f.split(':')[0]*60+ +f.split(':')[1], t2=+t.split(':')[0]*60+ +t.split(':')[1];
+  let targetDow, base=new Date();
+  if(dayv==='today')targetDow=DOW[base.getDay()];
+  else if(dayv==='tomorrow'){const d=new Date(base);d.setDate(d.getDate()+1);targetDow=DOW[d.getDay()];}
+  else targetDow=dayv;
+  let out=[];
+  P.forEach(p=>{ p.events.filter(evMatches).forEach(e=>{ const occ=occOnDay(e,targetDow,t1,t2);
+    if(occ) out.push({p,when:occ,lang:e.language,dist:origin?hav(origin,p):null}); }); });
+  out.sort((a,b)=> (origin?(a.dist-b.dist):(a.when-b.when)) || a.when-b.when);
+  render(out, (cat[0].toUpperCase()+cat.slice(1))+' · '+daySel.options[daySel.selectedIndex].text);
+}
+document.getElementById('nowBtn').onclick=nextHourNearMe;
+document.getElementById('searchBtn').onclick=search;
+
+// ---------- sheet ----------
+function openSheet(){document.getElementById('sheet').classList.add('open');}
+document.getElementById('grip').onclick=()=>document.getElementById('sheet').classList.toggle('open');
+
+// ---------- detail ----------
+function row(k,v){return v?`<div class="line"><span class="k">${k}</span><span class="v">${v}</span></div>`:'';}
+function openDetail(id){
+  const p=P.find(x=>x.id===id); if(!p)return;
+  const s=p.schedule;
+  const dir=`https://www.google.com/maps/dir/?api=1&destination=${p.lat},${p.lon}`;
+  const cc={bulletin:'from current bulletin',parish_website:'from parish website',directory:'from archdiocese listing',search_only:'unverified — call to confirm'}[p.confidence]||p.confidence;
+  document.getElementById('panel').innerHTML=`
+   <div class="phead"><button class="close" onclick="closeModal()">✕</button>
+     <h2>${p.name}</h2><div class="a">${p.arch==='Winnipeg'?'Archdiocese of Winnipeg':'Archdiocese of Saint Boniface'} · ${p.area.replace(' (suburb)','')}</div></div>
+   <div class="sec"><h3>Mass</h3>
+     ${row('Saturday vigil',s.saturday_vigil)}${row('Sunday',s.sunday_mass)}${row('Weekday',s.weekday_mass)}</div>
+   <div class="sec"><h3>Confession · Adoration · Visits</h3>
+     ${row('Confession',s.confession)}${row('Adoration',s.adoration)}${row('Visiting hours',s.visiting_hours)||row('Visiting hours','—')}</div>
+   <div class="sec"><h3>Visit</h3>
+     ${row('Address',p.address)}${row('Phone',p.phone?`<a href="tel:${p.phone.replace(/[^0-9+]/g,'')}">${p.phone}</a>`:'')}
+     ${row('Website',p.website?`<a href="${p.website}" target="_blank" rel="noopener">open ↗</a>`:'')}
+     <div class="actions">
+       <a href="${dir}" target="_blank" rel="noopener">Directions</a>
+       ${p.phone?`<a class="ghost" href="tel:${p.phone.replace(/[^0-9+]/g,'')}">Call</a>`:''}
+     </div>
+     <div class="conf">Times <b>${cc}</b>${p.bulletin_date?` · bulletin ${p.bulletin_date}`:''}. <span class="src"><a href="${(p.source||'').split(' ')[0]}" target="_blank" rel="noopener">source ↗</a></span></div>
+   </div>`;
+  document.getElementById('modal').classList.add('open');
+}
+function closeModal(){document.getElementById('modal').classList.remove('open');}
+document.getElementById('modal').onclick=e=>{if(e.target.id==='modal')closeModal();};
+
+// ---------- natural-language search ----------
+const MONTHS_OK=m=>true;
+const interp=document.getElementById('interp');
+function showInterp(html){interp.style.display='block';interp.innerHTML=html;}
+const WDAY={sunday:'Sun',monday:'Mon',tuesday:'Tue',wednesday:'Wed',thursday:'Thu',friday:'Fri',saturday:'Sat',
+  sun:'Sun',mon:'Mon',tue:'Tue',tues:'Tue',wed:'Wed',thu:'Thu',thur:'Thu',thurs:'Thu',fri:'Fri',sat:'Sat'};
+function fmtMin(m){let h=Math.floor(m/60),mm=m%60,ap=h>=12?'PM':'AM',hh=h%12||12;return hh+(mm?':'+String(mm).padStart(2,'0'):'')+' '+ap;}
+
+function parseNL(text){
+  const t=text.trim(); const low=' '+t.toLowerCase()+' ';
+  let category='mass';
+  if(/confession|reconcil|penance/.test(low))category='confession';
+  else if(/adorat|blessed sacrament|exposition|holy hour/.test(low))category='adoration';
+  // category words also signal in plural; default mass
+  // ----- day -----
+  let dow=null, dayLabel='today';
+  if(/\btomorrow\b/.test(low)){const d=new Date();d.setDate(d.getDate()+1);dow=DOW[d.getDay()];dayLabel='tomorrow';}
+  else if(/\btoday\b|\btonight\b/.test(low)){dow=DOW[new Date().getDay()];dayLabel='today';}
+  else { for(const k in WDAY){const re=new RegExp('\\b'+k+'\\b'); if(re.test(low)){dow=WDAY[k];dayLabel=k.charAt(0).toUpperCase()+k.slice(1);break;}} }
+  // ----- time window -----
+  let mode='window', t1=6*60, t2=22*60, timeLabel='any time';
+  const range=low.match(/(\d{1,2})(?::(\d{2}))?\s*(?:-|–|to|until|till)\s*(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/);
+  const single=low.match(/(?:at|around|by|after|from)?\s*(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b/);
+  const to24=(h,m,ap)=>{h=+h;m=+m||0;ap=(ap||'').toLowerCase();if(ap==='pm'&&h!==12)h+=12;if(ap==='am'&&h===12)h=0;return h*60+m;};
+  if(/next hour|within an hour|in an hour|right now|\bnow\b/.test(low)){mode='nexthour';timeLabel='the next hour';}
+  else if(range){const ap=range[5]; t1=to24(range[1],range[2],ap||'am'); t2=to24(range[3],range[4],ap||'pm');
+    if(t2<t1)t2+=12*60; timeLabel=fmtMin(t1)+'–'+fmtMin(t2);}
+  else if(single){const s=to24(single[1],single[2],single[3]); t1=s; t2=Math.min(s+120,23*60+59); timeLabel='around '+fmtMin(s);}
+  else if(/morning/.test(low)){t1=6*60;t2=12*60;timeLabel='morning';}
+  else if(/\bnoon\b|midday/.test(low)){t1=11*60+30;t2=13*60+30;timeLabel='around noon';}
+  else if(/afternoon/.test(low)){t1=12*60;t2=17*60;timeLabel='afternoon';}
+  else if(/evening|tonight/.test(low)){t1=17*60;t2=22*60;timeLabel='evening';}
+  if(!dow)dow=DOW[new Date().getDay()];
+  // ----- location -----
+  let useGPS=/near me|around me|by me|close to me|my location|nearby|where i am/.test(low);
+  let locText=t;
+  // strip filler / time / day / category to leave a place phrase for geocoding
+  locText=locText.replace(/i['’]?ll be|i will be|i am|i'm|i’m|going to be|i'll|i’ll/gi,' ')
+    .replace(/what(?:'s| is| are)?|where(?:'s| is)?|closest|nearest|the |around it|to it|to me|near me|around me|by me|nearby/gi,' ')
+    .replace(/\bmass(es)?\b|\bconfession(s)?\b|reconciliation|\badoration\b|holy hour|blessed sacrament/gi,' ')
+    .replace(/\btomorrow\b|\btoday\b|\btonight\b|\bthis (morning|afternoon|evening)\b|\bnext\b/gi,' ')
+    .replace(/\b(sunday|monday|tuesday|wednesday|thursday|friday|saturday|sun|mon|tue|tues|wed|thu|thur|thurs|fri|sat)\b/gi,' ')
+    .replace(/\b\d{1,2}(?::\d{2})?\s*(?:-|–|to|until|till)\s*\d{1,2}(?::\d{2})?\s*(?:am|pm)\b/gi,' ')
+    .replace(/\b(?:at|around|by|after|from)\s+\d{1,2}(?::\d{2})?\s*(?:am|pm)\b/gi,' ')
+    .replace(/\b\d{1,2}(?::\d{2})?\s*(am|pm)\b/gi,' ')
+    .replace(/\b\d{1,2}:\d{2}\b/gi,' ')
+    .replace(/\b(morning|afternoon|evening|noon|midday|midnight|hour|next hour|within an hour|in an hour|right now|now)\b/gi,' ')
+    .replace(/\b(near|around|close to|by|on|at|in|the|a|an|please|find|show|me|is|there|any|what|are|closest|can|could|would|i|will|be|going|to)\b/gi,' ')
+    .replace(/[?.!,;:]/g,' ').replace(/\s+/g,' ').trim();
+  return {category,dow,dayLabel,mode,t1,t2,timeLabel,locText,useGPS};
+}
+
+async function geocode(q){
+  const url='https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=ca&q='+
+    encodeURIComponent(q+', Winnipeg, Manitoba, Canada');
+  const r=await fetch(url,{headers:{'Accept':'application/json'}});
+  const j=await r.json();
+  if(j&&j[0])return {lat:+j[0].lat,lon:+j[0].lon,label:(j[0].display_name||'').split(',').slice(0,3).join(',')};
+  return null;
+}
+
+async function runNL(){
+  const q=document.getElementById('nlq').value; if(!q.trim())return;
+  const p=parseNL(q);
+  // set category segment to match
+  cat=p.category;
+  document.querySelectorAll('#catSeg button').forEach(b=>b.classList.toggle('on',b.dataset.cat===cat));
+  // resolve location
+  let where='';
+  if(p.useGPS||(!p.locText)){
+    if(navigator.geolocation && (p.useGPS || !origin)){
+      showInterp('Locating you…');
+      await new Promise(res=>navigator.geolocation.getCurrentPosition(
+        pos=>{setOrigin(pos.coords.latitude,pos.coords.longitude,'my location');where='near you';res();},
+        ()=>{res();},{enableHighAccuracy:true,timeout:8000}));
+    }
+    if(!origin){showInterp('Tell me where — name a street or address, or tap “📍 My location”.');return;}
+    if(!where)where='near your set location';
+  } else {
+    showInterp('Finding “'+p.locText+'”…');
+    let g=null; try{g=await geocode(p.locText);}catch(e){}
+    if(!g){showInterp('Couldn’t find “'+p.locText+'”. Try a fuller address, or tap the map to drop a pin.');return;}
+    setOrigin(g.lat,g.lon,g.label); map.setView([g.lat,g.lon],14); where='near '+g.label;
+  }
+  // run the matching search
+  const catName=cat[0].toUpperCase()+cat.slice(1);
+  if(p.mode==='nexthour'){
+    showInterp(`${catName} in <b>the next hour</b>, <b>${where}</b>`);
+    nextHourNearMe();
+  } else {
+    const now=new Date(); let base=new Date();
+    let delta=(DOW.indexOf(p.dow)-base.getDay()+7)%7; const d=new Date(); d.setDate(d.getDate()+delta);
+    let out=[];
+    P.forEach(par=>{ par.events.filter(e=>e.category===cat&&e.time&&e.regular&&(!e.months||e.months.includes(d.getMonth()+1))).forEach(e=>{
+      const occ=occOnDay(e,p.dow,p.t1,p.t2);
+      if(occ)out.push({p:par,when:occ,lang:e.language,dist:origin?hav(origin,par):null}); }); });
+    out.sort((a,b)=> (a.dist??1e9)-(b.dist??1e9) || a.when-b.when);
+    showInterp(`${catName}, <b>${p.dayLabel}</b>, <b>${p.timeLabel}</b>, <b>${where}</b> — closest first`);
+    render(out, `${catName} · ${p.dayLabel} ${p.timeLabel}`);
+  }
+}
+document.getElementById('nlBtn').onclick=runNL;
+document.getElementById('nlq').addEventListener('keydown',e=>{if(e.key==='Enter')runNL();});
+
+// ---------- service worker ----------
+if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(()=>{});}
+</script>
+</body>
+</html>
