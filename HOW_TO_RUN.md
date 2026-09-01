@@ -24,6 +24,17 @@ python3 -m http.server 8000
 Then open http://localhost:8000 in your browser. To install on a phone on the same Wi-Fi,
 open http://<your-computer-ip>:8000 on the phone → Share → "Add to Home Screen".
 
+## Keeping the phone app's times current
+The app caches itself for offline use. Since 2026-08-31 it fetches `parish_data.js`
+network-first, so an installed app picks up new times automatically the next time it is
+opened with an internet connection. Two things still matter:
+1. **The host must have the new files.** If you put the app on Netlify/GitHub Pages/etc.,
+   re-upload the `app/` folder after each weekly refresh; the refresh only updates this
+   folder on your computer. (If you serve it from your Mac with `http.server`, nothing to do.)
+2. The header shows "Times updated YYYY-MM-DD" so you can always check what data the
+   phone is using. If it is stale, open the app twice while online (first open installs
+   the updated service worker, second open loads fresh data).
+
 ## Put it on your phone for good
 To have it on your phone anywhere (not just same Wi-Fi), host the `app/` folder on any
 static host — e.g. Netlify Drop (drag the folder in), GitHub Pages, or Cloudflare Pages.

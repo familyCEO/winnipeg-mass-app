@@ -88,7 +88,8 @@
 <div id="app">
   <header>
     <h1>Mass <span>Near Me</span> · Winnipeg & St. Boniface</h1>
-    <p>Find the next Mass, confession or adoration close to you.</p>
+    <p>Find the next Mass, confession or adoration close to you.
+      <span id="dataDate" style="opacity:.65;font-size:.85em"></span></p>
   </header>
   <div class="controls">
     <div class="row">
@@ -382,6 +383,9 @@ async function runNL(){
 }
 document.getElementById('nlBtn').onclick=runNL;
 document.getElementById('nlq').addEventListener('keydown',e=>{if(e.key==='Enter')runNL();});
+
+// ---------- data freshness ----------
+if(window.PARISH_DATA&&PARISH_DATA.built){document.getElementById('dataDate').textContent='Times updated '+PARISH_DATA.built+'.';}
 
 // ---------- service worker ----------
 if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(()=>{});}
